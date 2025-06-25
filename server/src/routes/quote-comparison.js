@@ -35,11 +35,9 @@ router.get("/quote-comparison", async (req, res) => {
     );
 
     const notmalizedOffersData = normalizeOffersForTable(enrichedOffers);
-    console.log(JSON.stringify(notmalizedOffersData, null, 2));
 
     const { rows, suppliersMap } = notmalizedOffersData;
 
-    console.log(calculateUnitPriceStatus(rows));
     res.json({
       _id: quote._id,
       rows: calculateUnitPriceStatus(rows),
@@ -146,8 +144,6 @@ function calculateUnitPriceStatus(rows) {
   const max = Math.max(...allPrices);
   const step = (max - min) / STATUSES_COUNT;
 
-  console.log({ allPrices, min, max, step });
-
   const getStatus = (price) => {
     const status = Math.floor((price - min) / step);
     return step === 0 ? 0 : Math.min(status, STATUSES_COUNT - 1);
@@ -180,8 +176,6 @@ function calculateTotalPriceStatus(suppliersMap) {
   const min = Math.min(...allPrices);
   const max = Math.max(...allPrices);
   const step = (max - min) / STATUSES_COUNT;
-
-  console.log({ allPrices, min, max, step });
 
   const getStatus = (price) => {
     const status = Math.floor((price - min) / step);
