@@ -1,6 +1,6 @@
 const express = require("express");
 
-const { aggregateQuotesData } = require("../services/quote.service");
+const { aggregateQuotesData } = require("../repositories/quote.repository");
 
 const router = express.Router();
 
@@ -130,57 +130,50 @@ function normalizeOffersForTable(offers) {
   };
 }
 
-function calculateUnitPriceStatus(rows) {
+const getPriceStatus = ({ price, allPrices }) => {
   const STATUSES_COUNT = 5;
-  const allPrices = [];
-
-  for (const row of rows) {
-    for (const offer of Object.values(row.prices)) {
-      allPrices.push(offer.unitPrice);
-    }
-  }
-
   const min = Math.min(...allPrices);
   const max = Math.max(...allPrices);
   const step = (max - min) / STATUSES_COUNT;
 
-  const getStatus = (price) => {
-    const status = Math.floor((price - min) / step);
-    return step === 0 ? 0 : Math.min(status, STATUSES_COUNT - 1);
-  };
+  const status = Math.floor((price - min) / step);
+  return step === 0 ? 0 : Math.min(status, STATUSES_COUNT - 1);
+};
 
-  return rows.map((row) => ({
-    ...row,
-    prices: Object.fromEntries(
-      Object.entries(row.prices).map(([supplierId, prices]) => {
-        return [
-          supplierId,
-          {
-            ...prices,
-            status: getStatus(prices.unitPrice),
-          },
-        ];
-      }),
-    ),
-  }));
+function calculateUnitPriceStatus(rows) {
+  return rows.map((row) => {
+    const rowUnitPrices = [];
+
+    for (const offer of Object.values(row.prices)) {
+      rowUnitPrices.push(offer.unitPrice);
+    }
+
+    return {
+      ...row,
+      prices: Object.fromEntries(
+        Object.entries(row.prices).map(([supplierId, prices]) => {
+          return [
+            supplierId,
+            {
+              ...prices,
+              status: getPriceStatus({
+                price: prices.unitPrice,
+                allPrices: rowUnitPrices,
+              }),
+            },
+          ];
+        }),
+      ),
+    };
+  });
 }
 
 function calculateTotalPriceStatus(suppliersMap) {
-  const STATUSES_COUNT = 5;
-  const allPrices = [];
+  const supplierTotalPrices = [];
 
   for (const supplier of Object.values(suppliersMap)) {
-    allPrices.push(supplier.totalPrice);
+    supplierTotalPrices.push(supplier.totalPrice);
   }
-
-  const min = Math.min(...allPrices);
-  const max = Math.max(...allPrices);
-  const step = (max - min) / STATUSES_COUNT;
-
-  const getStatus = (price) => {
-    const status = Math.floor((price - min) / step);
-    return step === 0 ? 0 : Math.min(status, STATUSES_COUNT - 1);
-  };
 
   return Object.fromEntries(
     Object.entries(suppliersMap).map(([supplierId, supplier]) => {
@@ -188,7 +181,10 @@ function calculateTotalPriceStatus(suppliersMap) {
         supplierId,
         {
           ...supplier,
-          status: getStatus(supplier.totalPrice),
+          status: getPriceStatus({
+            price: supplier.totalPrice,
+            allPrices: supplierTotalPrices,
+          }),
         },
       ];
     }),
